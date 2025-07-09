@@ -4,14 +4,18 @@ An enhanced fork of Voro++ compiled to WebAssembly with a modern, interactive 3D
 
 ## 🚀 [Live Demo](https://virtualorganics.github.io/Voro-Emscripten-fork/)
 
+https://virtualorganics.github.io/Voro-Emscripten-fork/
+
 Try the interactive 3D Voronoi visualization demo to see the WebAssembly capabilities in action!
 
 ## 📸 Screenshots
 
-![Voro++ 3D Demo Screenshot 1](screenshots/voro-demo-1.png)
+<img src="screenshots/voro-demo-1.png" alt="Voro++ 3D Demo Screenshot 1" width="50%">
+
 *Interactive 3D Voronoi cells with colorful visualization*
 
-![Voro++ 3D Demo Screenshot 2](screenshots/voro-demo-2.png)
+<img src="screenshots/voro-demo-2.png" alt="Voro++ 3D Demo Screenshot 2" width="50%">
+
 *Wireframe view showing the Voronoi cell structure*
 
 ## 🎯 What's New in This Fork
