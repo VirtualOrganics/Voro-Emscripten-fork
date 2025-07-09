@@ -1,14 +1,10 @@
-mkdir -p bin
-emcc\
-  -I ./src\
-  -l embind\
-  -s MODULARIZE=1\
-  -s EXPORT_ES6=1\
-  -s 'EXPORT_NAME="voro"'\
-  -s ASSERTIONS=1\
-  -s TOTAL_MEMORY=256MB\
-  -s ALLOW_MEMORY_GROWTH=1\
-  -Os\
-  --emit-tsd ./voro_raw.d.ts\
-  -o ./bin/voro_raw.js\
-  ./src/embindings.cc ./src/voro++.cc
+#!/bin/bash
+
+# This build script compiles the src files and creates a wasm and js file in dist/
+
+# emcc -O3 --bind -o ./dist/voro.js $(find ./src -type f -name "*.cc")
+
+emcc -O3 --bind -o ./dist/voro.js -s SINGLE_FILE=1 $(find ./src -type f -name "*.cc")
+
+# To generate the typescript definition file as well run:
+# emcc -O3 --bind --embind-emit-tsd ./dist/voro.d.ts -o ./dist/voro.js $(find ./src -type f -name "*.cc")

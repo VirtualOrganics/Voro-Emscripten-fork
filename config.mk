@@ -1,31 +1,21 @@
 # Voro++, a 3D cell-based Voronoi library
 #
-# Author : Chris H. Rycroft (LBL / UC Berkeley)
-# Email  : chr@alum.mit.edu
-# Date   : August 28th 2011
+# Author   : Chris H. Rycroft (LBL / UC Berkeley)
+# Email    : chr@alum.mit.edu
+# Date     : August 30th 2011
 
-# This a common configuration file that includes definitions used by all
-# the Makefiles.
+# This file is used to configure the C++ compiler and library flags. It is
+# also used to set the installation directory. If you are compiling on a
+# different machine, it may be necessary to make some changes here.
 
-# C++ compiler
-CXX=g++
+# The C++ compiler to use
+CXX = em++
 
-# Flags for the C++ compiler
-CFLAGS=-Wall -ansi -pedantic -O3 -std=c++11
-
-
-# Relative include and library paths for compilation of the examples
-E_INC=-I../../src
-E_LIB=-L../../src
+# C++ compiler flags
+CXXFLAGS = -O3 --bind -s SINGLE_FILE=1
 
 # Installation directory
-PREFIX=/usr/local
+PREFIX = /usr/local
 
-# Install command
-INSTALL=install
-
-# Flags for install command for executable
-IFLAGS_EXEC=-m 0755
-
-# Flags for install command for non-executable files
-IFLAGS=-m 0644
+# Standard C++ libraries to link to
+LIBS = -lm
