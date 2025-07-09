@@ -1,4 +1,16 @@
 <!DOCTYPE html>
 <html>
-  <script type="module" async src="binding_test.js"></script>
+    <head>
+        <title>Voro++ Emscripten Binding Test</title>
+    </head>
+    <body>
+        <h1>Voro++ Emscripten Binding Test</h1>
+        <p>Check the browser console for output.</p>
+        
+        <!-- Load the main WASM module, compiled by the build script -->
+        <script src="../../dist/voro.js"></script>
+
+        <!-- Load the test script that uses the module -->
+        <script type="module" async src="./binding_test.js"></script>
+    </body>
 </html>
