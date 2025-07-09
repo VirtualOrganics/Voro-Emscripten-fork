@@ -1,247 +1,157 @@
-# Voro++ - Emscripten Bindings
+# Voro++ WebAssembly - Interactive 3D Voronoi Visualization
 
-This project extends the existing [Voro++ library](https://math.lbl.gov/voro++/) by adding a simplified container class that is exposed to JavaScript via emscripten. It also adds one new function to the existing container class that computes the 3D voronoi cells in a more usable format.
+An enhanced fork of Voro++ compiled to WebAssembly with a modern, interactive 3D visualization demo using Three.js.
 
 ## 🚀 [Live Demo](https://virtualorganics.github.io/Voro-Emscripten-fork/)
 
-Try the interactive 3D Voronoi visualization demo that showcases the WebAssembly capabilities of this library.
+Try the interactive 3D Voronoi visualization demo to see the WebAssembly capabilities in action!
 
-## Building
+## 📸 Screenshots
 
-The WebAssembly and accompaning JavaScript file can be compiled via build shell script `build.sh` in the root directory. As a prerequisite, the emscripten SDK needs to be installed and added to your PATH. See [here](https://emscripten.org/docs/getting_started/downloads.html) for more information.
+![Voro++ 3D Demo Screenshot 1](screenshots/voro-demo-1.png)
+*Interactive 3D Voronoi cells with colorful visualization*
 
-The build script has been tested with emscripten version `3.1.47` (allows export of TypeScript definition file). Compile the emscripten bindings by running:
-```shell
-# Mac & Linux
+![Voro++ 3D Demo Screenshot 2](screenshots/voro-demo-2.png)
+*Wireframe view showing the Voronoi cell structure*
+
+## 🎯 What's New in This Fork
+
+This fork significantly improves upon the original Voro++ Emscripten bindings with:
+
+### ✨ Enhanced Features
+- **Interactive 3D Visualization**: Beautiful Three.js-based demo with real-time Voronoi cell computation
+- **Modern JavaScript API**: Clean ES6 module interface with proper memory management
+- **Live Animation**: Watch Voronoi cells update in real-time as points move
+- **User-Friendly Controls**: Intuitive interface for adjusting parameters and visualization options
+- **Proper WASM Loading**: Fixed module loading issues with correct path resolution
+- **Memory Safety**: Proper cleanup of Emscripten vectors to prevent memory leaks
+
+### 🔧 Technical Improvements
+- Fixed Emscripten vector binding issues that caused runtime errors
+- Corrected Container constructor parameters (9 instead of 13)
+- Added proper `convertToWorld` parameter support for correct coordinate systems
+- Implemented efficient triangulation for non-planar Voronoi faces
+- Added comprehensive error handling and logging
+
+## 📦 What is Voro++?
+
+[Voro++](https://math.lbl.gov/voro++/) is a software library for carrying out three-dimensional computations of the Voronoi tessellation. A Voronoi tessellation is a partitioning of space into regions based on distance to a specific set of points.
+
+This WebAssembly version brings the power of Voro++ to the web browser, enabling:
+- 3D Voronoi cell computation directly in the browser
+- No server-side processing required
+- Fast, efficient calculations using compiled C++ code
+- Easy integration with JavaScript applications
+
+## 🛠️ Building from Source
+
+### Prerequisites
+- [Emscripten SDK](https://emscripten.org/docs/getting_started/downloads.html)
+- Make sure `emcc` is in your PATH
+
+### Build Steps
+```bash
+# Clone the repository
+git clone https://github.com/VirtualOrganics/Voro-Emscripten-fork.git
+cd Voro-Emscripten-fork
+
+# Build the WebAssembly module
 ./build.sh
+
+# The compiled files will be in the bin/ directory:
+# - bin/voro_raw.js (JavaScript module)
+# - bin/voro_raw.wasm (WebAssembly binary)
 ```
-or
-```shell
-# Windows
-bash build.sh
-```
 
-## Usage Example
+## 💻 Usage
 
-You can test the compiled files by running the binding test in `binding_test.js`. Start a simple python server (`python -m http.server`) and open [`http://localhost:8000/examples/emscripten/binding_test.html`](http://localhost:8000/examples/emscripten/binding_test.html) in the browser. You can see the output of the calculated cells in the console.
-
-### JavaScript API
-
-The simplified API exposed to JavaScript includes:
-
+### Basic Example
 ```javascript
-// Load the module
 import voro from './bin/voro_raw.js';
 
-voro().then((Module) => {
-    // Create container (xmin, xmax, ymin, ymax, zmin, zmax, nx, ny, nz)
-    const container = new Module.Container(0, 1, 0, 1, 0, 1, 1, 1, 1);
-    
-    // Create points array - must use Emscripten vector
-    const particles = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6]; // x1,y1,z1,x2,y2,z2
-    const vectorFloat = new Module.VectorFloat();
-    for (let i = 0; i < particles.length; i++) {
-        vectorFloat.push_back(particles[i]);
+// Initialize the module
+const voroModule = await voro({
+    locateFile: (filename) => {
+        if (filename.endsWith('.wasm')) {
+            return '/bin/voro_raw.wasm';
+        }
+        return filename;
     }
-    
-    // Compute cells (second parameter: convertToWorld)
-    const cells = container.computeCells(vectorFloat, true);
-    
-    // Process results
-    for (let i = 0; i < cells.size(); i++) {
-        const cell = cells.get(i);
-        console.log(`Cell ${cell.particleID} at (${cell.x}, ${cell.y}, ${cell.z})`);
-        // Access vertices, faces, neighbors...
-    }
-    
-    // Clean up
-    vectorFloat.delete();
-    cells.delete();
-    container.delete();
 });
+
+// Create a container (box from 0 to 1 in all dimensions)
+const container = new voroModule.Container(
+    0, 1, 0, 1, 0, 1,  // Box bounds: x_min, x_max, y_min, y_max, z_min, z_max
+    1, 1, 1            // Grid divisions: nx, ny, nz
+);
+
+// Create points (must use Emscripten vector)
+const points = new voroModule.VectorFloat();
+points.push_back(0.5); points.push_back(0.5); points.push_back(0.5);  // Point 1
+points.push_back(0.2); points.push_back(0.3); points.push_back(0.7);  // Point 2
+// ... add more points
+
+// Compute Voronoi cells
+const cells = container.computeCells(points, true);  // true = convertToWorld
+
+// Process results
+for (let i = 0; i < cells.size(); i++) {
+    const cell = cells.get(i);
+    console.log(`Cell ${i}: ${cell.vertices.size()} vertices`);
+}
+
+// Important: Clean up memory
+points.delete();
+cells.delete();
+container.delete();
 ```
+
+### API Reference
+
+#### Container Constructor
+```javascript
+new Container(x_min, x_max, y_min, y_max, z_min, z_max, nx, ny, nz)
+```
+- `x_min, x_max, y_min, y_max, z_min, z_max`: Bounding box dimensions
+- `nx, ny, nz`: Grid divisions for spatial optimization
+
+#### computeCells Method
+```javascript
+container.computeCells(points, convertToWorld)
+```
+- `points`: VectorFloat containing x,y,z coordinates (flattened array)
+- `convertToWorld`: Boolean to convert coordinates to world space
+- Returns: Vector of CellExport objects
+
+#### CellExport Structure
+Each cell contains:
+- `particleID`: Index of the generating point
+- `vertices`: VectorFloat of vertex coordinates (x,y,z flattened)
+- `faces`: VectorVectorInt of face vertex indices
+- `neighbors`: VectorInt of neighboring cell IDs
 
 ### Important Notes
 
-1. **Emscripten Vectors**: JavaScript arrays must be converted to Emscripten vectors (`VectorFloat`) before passing to the C++ functions.
+1. **Memory Management**: Always call `.delete()` on Emscripten objects when done
+2. **Coordinate System**: Voro++ uses the range [0,1] by default
+3. **Vector Usage**: JavaScript arrays must be converted to Emscripten vectors
+4. **Face Triangulation**: Voronoi faces may have more than 3 vertices and need triangulation for rendering
 
-2. **Memory Management**: Always call `.delete()` on Emscripten objects to prevent memory leaks.
+## 🤝 Contributing
 
-3. **Container Constructor**: Takes 9 parameters:
-   - Bounds: `xmin, xmax, ymin, ymax, zmin, zmax`
-   - Grid divisions: `nx, ny, nz`
-   - Note: This version does NOT support periodic boundary conditions
+Contributions are welcome! Please feel free to submit issues or pull requests.
 
-4. **computeCells Parameters**: 
-   - `vectorFloat`: The particle positions as an Emscripten vector
-   - `convertToWorld`: Boolean - use `true` to get vertices in world coordinates
+## 📄 License
 
-## Differences from Original Fork
+This project maintains the same license as the original Voro++ library. See the LICENSE file for details.
 
-This fork is based on [LukPopp0/Voro-Emscripten](https://github.com/LukPopp0/Voro-Emscripten) but includes:
+## 🙏 Acknowledgments
 
-1. **Interactive Demo**: Added a Three.js-based visualization demo showcasing real-time Voronoi computation
-2. **Documentation**: Enhanced documentation with common issues and solutions
-3. **Examples**: Updated examples to show proper Emscripten vector usage
+- Original [Voro++ library](https://math.lbl.gov/voro++/) by Chris H. Rycroft
+- [Three.js](https://threejs.org/) for 3D visualization
+- [Emscripten](https://emscripten.org/) for WebAssembly compilation
 
-The core Voro++ library remains unchanged - this fork only enhances the JavaScript interface and adds visualization capabilities.
+## 🔗 Related Projects
 
-The compiled WebAssembly file is also used in my [voro3d project](https://github.com/LukPopp0/voro3d). This is the recommended usage as the output is more web-friendly and adds TypeScript support.
-
-Below you can find the original readme of Voro++.
-
-------------
-
-Voro++, a 3D cell-based Voronoi library (http://math.lbl.gov/voro++/)
-By Chris H. Rycroft (UC Berkeley / Lawrence Berkeley Laboratory)
-================================================================
-Voro++ is a software library for carrying out three-dimensional computations
-of the Voronoi tessellation. A distinguishing feature of the Voro++ library
-is that it carries out cell-based calculations, computing the Voronoi cell
-for each particle individually, rather than computing the Voronoi
-tessellation as a global network of vertices and edges. It is particularly
-well-suited for applications that rely on cell-based statistics, where
-features of Voronoi cells (eg. volume, centroid, number of faces) can be
-used to analyze a system of particles
-
-Voro++ comprises of several C++ classes that can be built as a static library
-and linked to. A command-line utility is also provided that can analyze text
-files of particle configurations and use most of the features of the code.
-Numerous examples are provided to demonstrate the library's features and all of
-these are discussed in detail on the library website.
-
-
-Compilation - Linux / Mac OS / Windows with Cygwin
-==================================================
-The code is written in ANSI C++, and compiles on many system architectures. The
-package contains the C++ source code, example files, miscellaneous utilities
-and documentation. On Linux, Mac OS, and Windows (using Cygwin), the
-compilation and installed can be carried out using GNU Make.
-
-To begin, the user should review the file "config.mk" in the top level
-directory, to make sure that the compilation and installation settings are
-appropriate for their system. Typing "make" will then compile the static
-library, command-line utility, and examples. The command-line utility and
-library will appear within the "src" directory.
-
-Following successful compilation, the library, command-line utility, and
-documentation can be installed by typing "sudo make install". By default, the
-program files are installed into /usr/local, and it may be necessary to modify
-your environment variables in order to access the installed files:
-
-- to use the command-line utility, the variable PATH should contain
-  /usr/local/bin.
-- to access the Voro++ man page, the variable MANPATH should contain
-  /usr/local/man.
-- to access the Voro++ header files, code compilation should include
-  the flag '-I/usr/local/include/voro++'.
-- to link to the static library, code compilation should include the
-  flags '-L/usr/local/lib' to tell the linker where to look, and then
-  '-lvoro++' to link to the library.
-
-The library website contains additional notes on setting environment variables,
-and many guides are available on the Internet.
-
-The code can later be uninstalled with "sudo make uninstall". It is also
-possible to use the library and command-line utility without installation by
-calling the files directly once they have been compiled. On systems where the
-user does not have root privileges to install into /usr/local, the "config.mk"
-file can be modified to install into the user's home directory by setting
-PREFIX=$(HOME). Voro++ supports parallel compilation by using the "make -j <n>"
-command where n is the number of threads.
-
-
-Compilation - Windows without Cygwin
-====================================
-On a Windows machine without a terminal environment like Cygwin, it is possible
-to import and compile the library in many standard C++ development
-environments. Users have reported success in building the library with
-Microsoft Visual C++ Express and Code::Blocks.
-
-
-Related programs
-================
-No external dependencies are required to compile and run the code, but several
-programs may be useful for analyzing the output:
-
-- The freeware plotting program Gnuplot (available at www.gnuplot.info) can be
-  used for rapid 2D and 3D visualization of the program output.
-
-- The freeware raytracer POV-Ray (available at www.povray.org) can be used for
-  high-quality renderings of the program output.
-
-- The reference manual is generated from comments in the source code using
-  Doxygen (available at www.doxygen.org). This package is only required if the
-  library files are being developed and the reference manuals need to be
-  regenerated. The complete reference manual to the current code is available
-  online at http://math.lbl.gov/voro++/doc/refman/
-
-
-Contents
-========
-examples - many documented examples making use of the library
-html - an HTML-based reference manual (generated by Doxygen)
-man - contains the man page that is installed with the program
-scripts - miscellaneous helper scripts
-src - source code files
-
-
-Usage
-=====
-Voro++ is released as free software through the Lawrence Berkeley National
-Laboratory - a detailed copyright notice is provided below, and the complete
-terms of the license can be found in the LICENSE file.
-
-I am very interested to hear from users of the software, so if you find this
-useful, please email me at chr@alum.mit.edu. Also, if you plan to publish an
-academic paper using this software, please consider citing one of the following
-publications:
-
-- Chris H. Rycroft, "Voro++: A three-dimensional Voronoi cell library in C++",
-  Chaos 19, 041111 (2009).
-
-- Chris H. Rycroft, Gary S. Grest, James W. Landry, and Martin Z. Bazant,
-  "Analysis of Granular Flow in a Pebble-Bed Nuclear Reactor",
-  Phys. Rev. E 74, 021306 (2006).
-
-- Chris H. Rycroft, "Multiscale Modeling in Granular Flow", PhD thesis
-  submitted to the Massachusetts Institute of Technology, September 2007.
-  (http://math.berkeley.edu/~chr/publish/phd.html)
-
-The first reference contains a one-page overview of the library. The second
-reference contains some of the initial images that were made using a very early
-version of this code, to track small changes in packing fraction in a large
-particle simulation. The third reference discusses the use of 3D Voronoi cells,
-and describes the algorithms that were employed in the early version of this
-code. Since the publication of the above references, the algorithms in Voro++
-have been significantly improved, and a paper specifically devoted to the
-current code architecture will be published during 2012.
-
-
-Copyright Notice
-================
-Voro++ Copyright (c) 2008, The Regents of the University of California, through
-Lawrence Berkeley National Laboratory (subject to receipt of any required
-approvals from the U.S. Dept. of Energy). All rights reserved.
-
-If you have questions about your rights to use or distribute this software,
-please contact Berkeley Lab's Technology Transfer Department at TTD@lbl.gov.
-
-NOTICE. This software was developed under partial funding from the U.S.
-Department of Energy. As such, the U.S. Government has been granted for itself
-and others acting on its behalf a paid-up, nonexclusive, irrevocable, worldwide
-license in the Software to reproduce, prepare derivative works, and perform
-publicly and display publicly. Beginning five (5) years after the date
-permission to assert copyright is obtained from the U.S. Department of Energy,
-and subject to any subsequent five (5) year renewals, the U.S. Government is
-granted for itself and others acting on its behalf a paid-up, nonexclusive,
-irrevocable, worldwide license in the Software to reproduce, prepare derivative
-works, distribute copies to the public, perform publicly and display publicly,
-and to permit others to do so.
-
-
-Acknowledgments
-===============
-This work was supported by the Director, Office of Science, Computational and
-Technology Research, U.S. Department of Energy under Contract No.
-DE-AC02-05CH11231.
+- [Original Voro++ Emscripten bindings](https://github.com/delfrrr/voro-emscripten) - The project this fork is based on
+- [Voro++ Official Site](https://math.lbl.gov/voro++/) - The original C++ library

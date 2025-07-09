@@ -185,7 +185,16 @@
             
             // Load Voro++ module
             try {
-                voroModule = await voro();
+                voroModule = await voro({
+                    locateFile: (filename) => {
+                        if (filename.endsWith('.wasm')) {
+                            return '/bin/voro_raw.wasm';
+                        }
+                        return filename;
+                    },
+                    print: (text) => log(text),
+                    printErr: (text) => log(text, 'error')
+                });
                 log('Voro++ module loaded successfully!', 'success');
                 
                 // Generate initial Voronoi diagram
