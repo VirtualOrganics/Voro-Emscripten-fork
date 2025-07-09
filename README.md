@@ -2,6 +2,12 @@
 
 This project extends the existing [Voro++ library](https://math.lbl.gov/voro++/) by adding a simplified container class that is exposed to JavaScript via emscripten. It also adds one new function to the existing container class that computes the 3D voronoi cells in a more usable format.
 
+## 🚀 [Live Demo](https://virtualorganics.github.io/Voro-Emscripten-fork/)
+
+Try the interactive 3D Voronoi visualization demo that showcases the WebAssembly capabilities of this library.
+
+## Building
+
 The WebAssembly and accompaning JavaScript file can be compiled via build shell script `build.sh` in the root directory. As a prerequisite, the emscripten SDK needs to be installed and added to your PATH. See [here](https://emscripten.org/docs/getting_started/downloads.html) for more information.
 
 The build script has been tested with emscripten version `3.1.47` (allows export of TypeScript definition file). Compile the emscripten bindings by running:
@@ -15,7 +21,70 @@ or
 bash build.sh
 ```
 
+## Usage Example
+
 You can test the compiled files by running the binding test in `binding_test.js`. Start a simple python server (`python -m http.server`) and open [`http://localhost:8000/examples/emscripten/binding_test.html`](http://localhost:8000/examples/emscripten/binding_test.html) in the browser. You can see the output of the calculated cells in the console.
+
+### JavaScript API
+
+The simplified API exposed to JavaScript includes:
+
+```javascript
+// Load the module
+import voro from './bin/voro_raw.js';
+
+voro().then((Module) => {
+    // Create container (xmin, xmax, ymin, ymax, zmin, zmax, nx, ny, nz)
+    const container = new Module.Container(0, 1, 0, 1, 0, 1, 1, 1, 1);
+    
+    // Create points array - must use Emscripten vector
+    const particles = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6]; // x1,y1,z1,x2,y2,z2
+    const vectorFloat = new Module.VectorFloat();
+    for (let i = 0; i < particles.length; i++) {
+        vectorFloat.push_back(particles[i]);
+    }
+    
+    // Compute cells (second parameter: convertToWorld)
+    const cells = container.computeCells(vectorFloat, true);
+    
+    // Process results
+    for (let i = 0; i < cells.size(); i++) {
+        const cell = cells.get(i);
+        console.log(`Cell ${cell.particleID} at (${cell.x}, ${cell.y}, ${cell.z})`);
+        // Access vertices, faces, neighbors...
+    }
+    
+    // Clean up
+    vectorFloat.delete();
+    cells.delete();
+    container.delete();
+});
+```
+
+### Important Notes
+
+1. **Emscripten Vectors**: JavaScript arrays must be converted to Emscripten vectors (`VectorFloat`) before passing to the C++ functions.
+
+2. **Memory Management**: Always call `.delete()` on Emscripten objects to prevent memory leaks.
+
+3. **Container Constructor**: Takes 9 parameters:
+   - Bounds: `xmin, xmax, ymin, ymax, zmin, zmax`
+   - Grid divisions: `nx, ny, nz`
+   - Note: This version does NOT support periodic boundary conditions
+
+4. **computeCells Parameters**: 
+   - `vectorFloat`: The particle positions as an Emscripten vector
+   - `convertToWorld`: Boolean - use `true` to get vertices in world coordinates
+
+## Differences from Original Fork
+
+This fork is based on [LukPopp0/Voro-Emscripten](https://github.com/LukPopp0/Voro-Emscripten) but includes:
+
+1. **Interactive Demo**: Added a Three.js-based visualization demo showcasing real-time Voronoi computation
+2. **Documentation**: Enhanced documentation with common issues and solutions
+3. **Examples**: Updated examples to show proper Emscripten vector usage
+
+The core Voro++ library remains unchanged - this fork only enhances the JavaScript interface and adds visualization capabilities.
 
 The compiled WebAssembly file is also used in my [voro3d project](https://github.com/LukPopp0/voro3d). This is the recommended usage as the output is more web-friendly and adds TypeScript support.
 

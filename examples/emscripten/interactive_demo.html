@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Voro++ Interactive 3D Demo</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background-color: #1a1a1a;
+            color: white;
+            overflow: hidden;
+        }
+        #canvas-container {
+            width: 100vw;
+            height: 100vh;
+        }
+        #info {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0,0,0,0.8);
+            padding: 15px;
+            border-radius: 5px;
+            max-width: 300px;
+        }
+        #controls {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(0,0,0,0.8);
+            padding: 15px;
+            border-radius: 5px;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 5px;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        input[type="number"] {
+            width: 60px;
+            padding: 5px;
+            margin: 5px;
+        }
+        .console-output {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            right: 10px;
+            background: rgba(0,0,0,0.9);
+            padding: 10px;
+            border-radius: 5px;
+            max-height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .log-entry {
+            margin: 2px 0;
+        }
+        .error { color: #ff6b6b; }
+        .success { color: #51cf66; }
+        .info { color: #74c0fc; }
+    </style>
+</head>
+<body>
+    <div id="canvas-container"></div>
+    
+    <div id="info">
+        <h2>Voro++ 3D Voronoi Demo</h2>
+        <p>This demo uses the Voro++ library compiled to WebAssembly to compute 3D Voronoi cells.</p>
+        <p>Click "Generate" to create random points and compute their Voronoi cells.</p>
+        <p>Use mouse to rotate the view.</p>
+    </div>
+    
+    <div id="controls">
+        <h3>Controls</h3>
+        <label>
+            Number of points:
+            <input type="number" id="numPoints" value="20" min="4" max="100">
+        </label>
+        <br>
+        <button onclick="generateVoronoi()">Generate New</button>
+        <button onclick="toggleWireframe()">Toggle Wireframe</button>
+        <button onclick="togglePoints()">Toggle Points</button>
+        <br>
+        <label>
+            <input type="checkbox" id="showCells" checked> Show Cells
+        </label>
+        <br>
+        <label>
+            <input type="checkbox" id="animatePoints"> Animate Points
+        </label>
+    </div>
+    
+    <div id="console" class="console-output"></div>
+
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.164.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.164.0/examples/jsm/"
+        }
+    }
+    </script>
+    
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import voro from '../../bin/voro_raw.js';
+        
+        let scene, camera, renderer, controls;
+        let voroModule;
+        let pointsGroup, cellsGroup;
+        let particles = [];
+        let showWireframe = false;
+        let showPoints = true;
+        
+        const consoleDiv = document.getElementById('console');
+        
+        function log(message, type = 'info') {
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            consoleDiv.appendChild(entry);
+            consoleDiv.scrollTop = consoleDiv.scrollHeight;
+            console.log(message);
+        }
+        
+        async function init() {
+            log('Initializing Voro++ WebAssembly module...', 'info');
+            
+            // Initialize Three.js
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x1a1a1a);
+            
+            camera = new THREE.PerspectiveCamera(
+                75, 
+                window.innerWidth / window.innerHeight, 
+                0.1, 
+                1000
+            );
+            camera.position.set(2, 2, 2);
+            
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            document.getElementById('canvas-container').appendChild(renderer.domElement);
+            
+            controls = new OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            // Set controls target to center of [0,1] cube
+            controls.target.set(0.5, 0.5, 0.5);
+            controls.update();
+            
+            // Add lights
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambientLight);
+            
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.4);
+            directionalLight.position.set(5, 5, 5);
+            scene.add(directionalLight);
+            
+            // Add bounding box
+            const boxGeometry = new THREE.BoxGeometry(1, 1, 1);
+            const boxMaterial = new THREE.MeshBasicMaterial({ 
+                color: 0x444444, 
+                wireframe: true 
+            });
+            const box = new THREE.Mesh(boxGeometry, boxMaterial);
+            // Move box to center at (0.5, 0.5, 0.5) since Voro++ uses [0,1] range
+            box.position.set(0.5, 0.5, 0.5);
+            scene.add(box);
+            
+            // Initialize groups
+            pointsGroup = new THREE.Group();
+            cellsGroup = new THREE.Group();
+            scene.add(pointsGroup);
+            scene.add(cellsGroup);
+            
+            // Load Voro++ module
+            try {
+                voroModule = await voro();
+                log('Voro++ module loaded successfully!', 'success');
+                
+                // Generate initial Voronoi diagram
+                generateVoronoi();
+            } catch (error) {
+                log(`Error loading Voro++ module: ${error}`, 'error');
+            }
+            
+            animate();
+        }
+        
+        window.generateVoronoi = function() {
+            if (!voroModule) {
+                log('Voro++ module not loaded yet!', 'error');
+                return;
+            }
+            
+            const numPoints = parseInt(document.getElementById('numPoints').value);
+            log(`Generating ${numPoints} random points...`, 'info');
+            
+            // Clear existing geometry
+            pointsGroup.clear();
+            cellsGroup.clear();
+            
+            // Generate random particles
+            particles = [];
+            for (let i = 0; i < numPoints; i++) {
+                particles.push(
+                    Math.random() * 0.8 + 0.1,  // Keep points away from boundaries
+                    Math.random() * 0.8 + 0.1,
+                    Math.random() * 0.8 + 0.1
+                );
+            }
+            
+            try {
+                // Create container with periodic boundary conditions
+                const container = new voroModule.Container(
+                    0, 1, 0, 1, 0, 1,  // Box bounds
+                    1, 1, 1           // Grid divisions
+                );
+                
+                // Convert JavaScript array to Emscripten vector
+                const vectorFloat = new voroModule.VectorFloat();
+                for (let i = 0; i < particles.length; i++) {
+                    vectorFloat.push_back(particles[i]);
+                }
+                
+                // Compute cells
+                const cells = container.computeCells(vectorFloat, true);
+                log(`Computed ${cells.size()} Voronoi cells`, 'success');
+                
+                // Clean up the vector
+                vectorFloat.delete();
+                
+                // Visualize points
+                const pointsGeometry = new THREE.BufferGeometry();
+                const positions = new Float32Array(particles);
+                pointsGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+                
+                const pointsMaterial = new THREE.PointsMaterial({
+                    color: 0xff0000,
+                    size: 0.02,
+                    sizeAttenuation: true
+                });
+                
+                const pointsMesh = new THREE.Points(pointsGeometry, pointsMaterial);
+                pointsGroup.add(pointsMesh);
+                
+                // Visualize cells
+                for (let i = 0; i < cells.size(); i++) {
+                    const cell = cells.get(i);
+                    if (!cell.vertices || cell.vertices.size() === 0) continue;
+                    
+                    // Convert vertices from Emscripten vector to JavaScript array
+                    const verticesArray = [];
+                    for (let j = 0; j < cell.vertices.size(); j++) {
+                        verticesArray.push(cell.vertices.get(j));
+                    }
+                    
+                    // Create geometry for this cell
+                    const cellGeometry = new THREE.BufferGeometry();
+                    const vertices = new Float32Array(verticesArray);
+                    cellGeometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+                    
+                    if (cell.faces && cell.faces.size() > 0) {
+                        // Convert faces to indices
+                        const indices = [];
+                        for (let f = 0; f < cell.faces.size(); f++) {
+                            const face = cell.faces.get(f);
+                            if (face.size() >= 3) {
+                                // Triangulate the face (fan triangulation)
+                                for (let v = 1; v < face.size() - 1; v++) {
+                                    indices.push(face.get(0), face.get(v), face.get(v + 1));
+                                }
+                            }
+                        }
+                        
+                        if (indices.length > 0) {
+                            cellGeometry.setIndex(indices);
+                        }
+                    }
+                    
+                    // Create material with random color
+                    const hue = i / cells.size();
+                    const material = new THREE.MeshPhongMaterial({
+                        color: new THREE.Color().setHSL(hue, 0.7, 0.5),
+                        transparent: true,
+                        opacity: 0.7,
+                        side: THREE.DoubleSide,
+                        wireframe: showWireframe
+                    });
+                    
+                    const mesh = new THREE.Mesh(cellGeometry, material);
+                    cellsGroup.add(mesh);
+                }
+                
+                // Clean up cells vector
+                cells.delete();
+                
+                // Clean up container
+                container.delete();
+                
+                log(`Visualization complete!`, 'success');
+                
+            } catch (error) {
+                log(`Error computing Voronoi cells: ${error}`, 'error');
+            }
+        };
+        
+        window.toggleWireframe = function() {
+            showWireframe = !showWireframe;
+            cellsGroup.children.forEach(mesh => {
+                mesh.material.wireframe = showWireframe;
+            });
+            log(`Wireframe ${showWireframe ? 'enabled' : 'disabled'}`, 'info');
+        };
+        
+        window.togglePoints = function() {
+            showPoints = !showPoints;
+            pointsGroup.visible = showPoints;
+            log(`Points ${showPoints ? 'shown' : 'hidden'}`, 'info');
+        };
+        
+        let animationTime = 0;
+        let isAnimating = false;
+        
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            controls.update();
+            
+            // Animate points if enabled
+            if (document.getElementById('animatePoints').checked && pointsGroup.children.length > 0) {
+                const time = Date.now() * 0.001;
+                const deltaTime = time - animationTime;
+                animationTime = time;
+                
+                // Update particle positions
+                const positions = pointsGroup.children[0].geometry.attributes.position;
+                let needsRecompute = false;
+                
+                for (let i = 0; i < positions.count; i++) {
+                    const idx = i * 3;
+                    const x = particles[idx];
+                    const y = particles[idx + 1];
+                    const z = particles[idx + 2];
+                    
+                    // Animate with sine waves
+                    const newY = y + Math.sin(time + i) * 0.05;
+                    
+                    // Keep within bounds [0.1, 0.9]
+                    if (newY > 0.1 && newY < 0.9) {
+                        particles[idx + 1] = newY;
+                        positions.setY(i, newY);
+                        needsRecompute = true;
+                    }
+                }
+                
+                if (needsRecompute) {
+                    positions.needsUpdate = true;
+                    
+                    // Recompute Voronoi cells every few frames to maintain performance
+                    if (!isAnimating) {
+                        isAnimating = true;
+                        setTimeout(() => {
+                            if (document.getElementById('animatePoints').checked) {
+                                recomputeVoronoi();
+                            }
+                            isAnimating = false;
+                        }, 100); // Recompute every 100ms
+                    }
+                }
+            }
+            
+            // Show/hide cells based on checkbox
+            cellsGroup.visible = document.getElementById('showCells').checked;
+            
+            renderer.render(scene, camera);
+        }
+        
+        function recomputeVoronoi() {
+            if (!voroModule) return;
+            
+            // Clear existing cells
+            cellsGroup.clear();
+            
+            try {
+                // Create container
+                const container = new voroModule.Container(
+                    0, 1, 0, 1, 0, 1,
+                    1, 1, 1
+                );
+                
+                // Convert JavaScript array to Emscripten vector
+                const vectorFloat = new voroModule.VectorFloat();
+                for (let i = 0; i < particles.length; i++) {
+                    vectorFloat.push_back(particles[i]);
+                }
+                
+                // Compute cells
+                const cells = container.computeCells(vectorFloat, true);
+                
+                // Clean up the vector
+                vectorFloat.delete();
+                
+                // Visualize cells
+                for (let i = 0; i < cells.size(); i++) {
+                    const cell = cells.get(i);
+                    if (!cell.vertices || cell.vertices.size() === 0) continue;
+                    
+                    // Convert vertices from Emscripten vector to JavaScript array
+                    const verticesArray = [];
+                    for (let j = 0; j < cell.vertices.size(); j++) {
+                        verticesArray.push(cell.vertices.get(j));
+                    }
+                    
+                    // Create geometry for this cell
+                    const cellGeometry = new THREE.BufferGeometry();
+                    const vertices = new Float32Array(verticesArray);
+                    cellGeometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+                    
+                    if (cell.faces && cell.faces.size() > 0) {
+                        // Convert faces to indices
+                        const indices = [];
+                        for (let f = 0; f < cell.faces.size(); f++) {
+                            const face = cell.faces.get(f);
+                            if (face.size() >= 3) {
+                                // Triangulate the face (fan triangulation)
+                                for (let v = 1; v < face.size() - 1; v++) {
+                                    indices.push(face.get(0), face.get(v), face.get(v + 1));
+                                }
+                            }
+                        }
+                        
+                        if (indices.length > 0) {
+                            cellGeometry.setIndex(indices);
+                        }
+                    }
+                    
+                    // Create material with random color
+                    const hue = i / cells.size();
+                    const material = new THREE.MeshPhongMaterial({
+                        color: new THREE.Color().setHSL(hue, 0.7, 0.5),
+                        transparent: true,
+                        opacity: 0.7,
+                        side: THREE.DoubleSide,
+                        wireframe: showWireframe
+                    });
+                    
+                    const mesh = new THREE.Mesh(cellGeometry, material);
+                    cellsGroup.add(mesh);
+                }
+                
+                // Clean up
+                cells.delete();
+                container.delete();
+                
+            } catch (error) {
+                console.error('Error recomputing Voronoi cells:', error);
+            }
+        }
+        
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+        
+        // Initialize on load
+        init();
+    </script>
+</body>
+</html> 

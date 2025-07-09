@@ -15,10 +15,19 @@ voro().then((Module) => {
         );
     }
     
-    const container = new Module.Container(0, 1, 0, 1, 0, 1, 1, 1, 1, true, true, true, 8);
-    const cells = container.computeCells(particles);
+    const container = new Module.Container(0, 1, 0, 1, 0, 1, 1, 1, 1);
+    
+    // Convert JavaScript array to Emscripten vector
+    const vectorFloat = new Module.VectorFloat();
+    for (let i = 0; i < particles.length; i++) {
+        vectorFloat.push_back(particles[i]);
+    }
+    
+    const cells = container.computeCells(vectorFloat, false);
 
     console.log("Computed Voronoi cells:", cells);
-
+    
+    // Clean up
+    vectorFloat.delete();
     container.delete();
 });
