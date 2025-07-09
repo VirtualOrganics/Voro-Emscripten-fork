@@ -14,7 +14,7 @@ Try the interactive 3D Voronoi visualization demo to see the WebAssembly capabil
 
 *Interactive 3D Voronoi cells with colorful visualization*
 
-<img src="screenshots/voro-demo-2.png" alt="Voro++ 3D Demo Screenshot 2" width="50%">
+<img src="screenshots/voro-demo-3.png" alt="Voro++ 3D Demo Screenshot 2" width="50%">
 
 *Wireframe view showing the Voronoi cell structure*
 
