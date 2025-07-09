@@ -1,6 +1,6 @@
 # Voro++ WebAssembly - Interactive 3D Voronoi Visualization
 
-An enhanced fork of Voro++ compiled to WebAssembly with a modern, interactive 3D visualization demo using Three.js.
+An enhanced fork of Voro++ compiled to WebAssembly with a modern, interactive 3D visualization demo using custom WebGL rendering.
 
 ## 🚀 [Live Demo](https://virtualorganics.github.io/Voro-Emscripten-fork/)
 
@@ -23,7 +23,7 @@ Try the interactive 3D Voronoi visualization demo to see the WebAssembly capabil
 This fork significantly improves upon the original Voro++ Emscripten bindings with:
 
 ### ✨ Enhanced Features
-- **Interactive 3D Visualization**: Beautiful Three.js-based demo with real-time Voronoi cell computation
+- **Interactive 3D Visualization**: Beautiful custom WebGL demo with real-time Voronoi cell computation
 - **Modern JavaScript API**: Clean ES6 module interface with proper memory management
 - **Live Animation**: Watch Voronoi cells update in real-time as points move
 - **User-Friendly Controls**: Intuitive interface for adjusting parameters and visualization options
@@ -152,7 +152,7 @@ This project maintains the same license as the original Voro++ library. See the 
 ## 🙏 Acknowledgments
 
 - Original [Voro++ library](https://math.lbl.gov/voro++/) by Chris H. Rycroft
-- [Three.js](https://threejs.org/) for 3D visualization
+- Custom WebGL renderer for 3D visualization
 - [Emscripten](https://emscripten.org/) for WebAssembly compilation
 
 ## 🔗 Related Projects
