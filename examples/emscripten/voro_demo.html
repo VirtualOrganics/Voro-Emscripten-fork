@@ -7,10 +7,7 @@
         <h1>Voro++ Emscripten Binding Test</h1>
         <p>Check the browser console for output.</p>
         
-        <!-- Load the main WASM module, compiled by the build script -->
-        <script src="../../bin/voro_raw.js"></script>
-
-        <!-- Load the test script that uses the module -->
+        <!-- The test script is now the entry point, loaded as a module -->
         <script type="module" async src="./binding_test.js"></script>
     </body>
 </html>
